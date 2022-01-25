@@ -1,9 +1,25 @@
 f(x, b, p, α, μ, σ) = abs(x-b)^(p-1) * pdf(Aepd(μ, σ, p, α), x)
 
-function quantconvert(q, p, α, μ, σ)
-    a₁ = quadgk(x -> f(x, q, p, α, μ, σ), -Inf, Inf)[1]
-    a₂ = quadgk(x -> f(x, q, p, α, μ, σ), -Inf, q)[1]
-    1/((maximum([a₁/a₂, 1.0001]) - 1)^(1/p) + 1)
+"""
+    quantconvert(q, p, α, μ, σ)
+
+Computes
+```math
+\\tilde{\\tau} = \\left[ \\left(\\frac{E|Y - q_\\tau(1)|^{p-1}}{E |Y-q_\\tau(1)|^{p-1}I\\big(Y \\leq q_\\tau(1)\\big)} -
+1\\right)^{\\frac{1}{p}} + 1 \\right]^{-1}
+```
+
+# Arguments
+- `q::Real`: Quantile coeffcient estimate
+- `θ::Real`: Shape of the SEPD
+- `α::Real`: Skewness of the SEPD
+- `μ::Real`: Location of the SEPD
+- `σ::Real`: Scale of the SEPD
+"""
+function quantconvert(q, θ, α, μ, σ)
+    a₁ = quadgk(x -> f(x, q, θ, α, μ, σ), -Inf, Inf)[1]
+    a₂ = quadgk(x -> f(x, q, θ, α, μ, σ), -Inf, q)[1]
+    1/((maximum([a₁/a₂, 1.00001]) - 1)^(1/p) + 1)
 end
 
 """
@@ -11,8 +27,8 @@ end
 
 Estimates the converted Lp-quantile
 ```math
-\\tilde{\\tau} = \\left[ \\left(\\frac{E|Y - q_\\tau(1)|^{p-1}}{E |Y-q_\\tau(1)|^{p-1}I\\big(Y \\leq q_\\tau(1)\\big)} -
-1\\right)^{\\frac{1}{p}} + 1 \\right]^{-1}
+\\tilde{\\tau} = \\left[ \\left(\\frac{E|Y - q_\\tau(1)|^{\\theta-1}}{E |Y-q_\\tau(1)|^{\\theta-1}I\\big(Y \\leq q_\\tau(1)\\big)} -
+1\\right)^{\\frac{1}{\\theta}} + 1 \\right]^{-1}
 ```
 as a MC-estimate
 

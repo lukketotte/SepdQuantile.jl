@@ -12,6 +12,6 @@ include("Estimation/quantConvert.jl")
 include("Estimation/frequentist.jl")
 
 
-export mcmc, Sampler, acceptance, Aepd, mcτ, quantfreq
+export mcmc, Sampler, acceptance, Aepd, mcτ, quantfreq, quantconvert
 
 end
