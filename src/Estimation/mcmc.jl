@@ -1,6 +1,14 @@
 """
     Sampler(y, X, α, nMCMC, thin, burnIn)
-Contains data and other settings for MCMC sampler.
+Mutable object used for sampling from the SEPD posterior.
+
+```julia
+Sampler(y, X)   # Sampler with dependent variable y, model matrix X, skewness 0.5, sample size 5000, no thinning, no burn-in, Jeffreys shape prior
+Sampler(y, X, nMCMC)   # Sampler with dependent variable y, model matrix X, skewness 0.5, sample size nMCMC, no thinning, no burn-in, Jeffreys shape prior
+Sampler(y, X, α, nMCMC)   # Sampler with dependent variable y, model matrix X, skewness α, sample size nMCMC, no thinning, no burn-in, Jeffreys shape prior
+Sampler(y, X, α, nMCMC, πθ)   # Sampler with dependent variable y, model matrix X, skewness α, sample size nMCMC, no thinning, no burn-in, shape prior πθ
+Sampler(y, X, α, nMCMC, thin, burnIn, πθ)   # Sampler with dependent variable y, model matrix X, skewness α, sample size nMCMC, thinned down to keep every thin sample, burn-in set to burnIn, shape prior πθ
+```
 """
 mutable struct Sampler{T <: Real, M <: Real, Response <: AbstractVector, ModelMat <: AbstractMatrix}
     y::Response
@@ -17,6 +25,7 @@ function Sampler(y::AbstractVector{T}, X::AbstractMatrix{M}, α::Real, nMCMC::In
     α > 0 || α < 1 || throw(DomainError("α ∉ (0,1)"))
     y = T <: Int ?  log.(y + rand(Uniform(), length(y))) : y
     length(y) === size(X)[1] || throw(DomainError("Size of y and X not matching"))
+    πθ === "jeffrey" || πθ === "uniform" || throw(ArgumentError("prior has to be jeffrey or uniform"))
     Sampler{T, M, typeof(y), typeof(X)}(y, X, α, nMCMC, thin, burnIn, πθ)
 end
 
@@ -85,21 +94,21 @@ function sampleβ(β::AbstractVector{<:Real}, ε::Real,  s::Sampler, θ::Real, �
     return αᵦ > log(rand(Uniform(0,1), 1)[1]) ? prop : β
 end
 
-function sampleβ(β::AbstractVector{<:Real}, ε::Real,  s::Sampler, θ::Real, σ::Real, τ::Real)
-    λ = abs.(rand(Cauchy(0,1), length(β)))
-    ∇ = ∂β(β, s, θ, σ, τ, λ)
-    H = (∂β2(β, s, maximum([θ, 1.0001]), σ, τ, λ))^(-1) |> Symmetric
-    prop = β + ε^2 * H / 2 * ∇ + ε * √H * vec(rand(MvNormal(zeros(length(β)), 1), 1))
-    ∇ₚ = ∂β(prop, s, θ, σ, τ, λ)
-    Hₚ = (∂β2(prop, s, maximum([θ, 1.0001]), σ, τ, λ))^(-1) |> Symmetric
-    αᵦ = logβCond(prop, s, θ, σ, τ, λ) - logβCond(β, s, θ, σ, τ, λ)
-    αᵦ += - logpdf(MvNormal(β + ε .^2 / 2 * H * ∇, ε^2 * H), prop) + logpdf(MvNormal(prop + ε^2/2 * Hₚ * ∇ₚ, ε^2 * Hₚ), β)
-    return αᵦ > log(rand(Uniform(0,1), 1)[1]) ? prop : β
-end
+"""
+    mcmc(s, ε, εᵦ, σ₁, θ₁, β₁; verbose)
+Samples from the posterior assuming that skewness is known
 
-# AEPD jeffrey's prior, α known
-function mcmc(s::Sampler, ε::Real, εᵦ::Union{Real, AbstractVector{<:Real}}, σ₁::Real, θ₁::Real,
-    β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose = true)
+# Arguments
+- `s::Sampler`: Sampler struct
+- `ε::Real`: Variance of shape parameter proposal distribution
+- `εᵦ::Real`: Variance of regression coefficients proposal distribution
+- `σ₁::Real`: Initial value of scale parameter
+- `θ₁::Real`: Initial value of shape parameter
+- `β₁::Union{AbstractVector{<:Real}, Nothing}`: Initial values of regression coefficients, set to 0 if nothing
+- `verbose::Bool`: Print progress, defaults to true
+"""
+function mcmc(s::Sampler, ε::Real, εᵦ::Real, σ₁::Real, θ₁::Real,
+    β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose::Bool = true)
     n, p = size(s.X)
     σ₁ > 0 || θ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
@@ -125,11 +134,25 @@ function mcmcInner!(s::Sampler, θ::AbstractVector{<:Real}, σ::AbstractVector{<
         nothing
 end
 
-# AEPD jeffrey's prior, α unknown
+"""
+    mcmc(s, ε, εᵦ, σ₁, θ₁, β₁; verbose)
+Samples from the posterior assuming that all parameters are unkown
+
+# Arguments
+- `s::Sampler`: Sampler struct
+- `ε::Real`: Variance of shape parameter proposal distribution
+- `εₐ::Real`: Variance of skewness parameter proposal distribution
+- `εᵦ::Real`: Variance of regression coefficients proposal distribution
+- `σ₁::Real`: Initial value of scale parameter
+- `θ₁::Real`: Initial value of shape parameter
+- `α₁::Real`: Initial value of skewness parameter
+- `β₁::Union{AbstractVector{<:Real}, Nothing}`: Initial values of regression coefficients, set to 0 if nothing
+- `verbose::Bool`: Print progress, defaults to true
+"""
 function mcmc(s::Sampler, ε::Real, εₐ::Real, εᵦ::Union{Real, AbstractVector{<:Real}}, σ₁::Real, θ₁::Real, α₁::Real,
     β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose = true)
     n, p = size(s.X)
-    σ₁ > 0 || θ₁ > 0 || α > 0 || α < 1 || throw(DomainError("Parameter(s) not in domain"))
+    σ₁ > 0 || θ₁ > 0 || α > 0 || α < 1 || throw(DomainError("Initial parameter(s) not in domain"))
     β = zeros(s.nMCMC, p)
     σ, θ, α = [σ₁ ; zeros(s.nMCMC-1)], [θ₁ ; zeros(s.nMCMC-1)], [α₁ ; zeros(s.nMCMC-1)]
     s.α = α₁
@@ -156,14 +179,27 @@ function mcmcInner!(s::Sampler, θ::AbstractVector{<:Real}, σ::AbstractVector{<
         nothing
 end
 
-function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, σ₁::Real,
+"""
+    mcmc(s, εᵦ, σ₁, θ, β₁; verbose)
+Samples from the posterior assuming that all parameters but the regression coefficients are known. Skewness is
+set to s.α
+
+# Arguments
+- `s::Sampler`: Sampler struct
+- `εᵦ::Real`: Variance of regression coefficients proposal distribution
+- `θ::Real`: Fixed value of shape parameter
+- `σ::Real`: Fixed value of shape parameter
+- `β₁::Union{AbstractVector{<:Real}, Nothing}`: Initial values of regression coefficients, set to 0 if nothing
+- `verbose::Bool`: Print progress, defaults to true
+"""
+function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, σ::Real,
     β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose = true)
     n, p = size(s.X)
     σ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
     σ = [σ₁; zeros(s.nMCMC-1)]
     β[1,:] = !(typeof(β₁) <: Nothing) && β₁
-    σ[1] = σ₁
+    σ[1] = σ
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
         barglyphs=BarGlyphs('|','█', ['▁' ,'▂' ,'▃' ,'▄' ,'▅' ,'▆', '▇'],' ','|',),
@@ -178,7 +214,7 @@ end
 
 function mcmcInner!(s::Sampler, σ::AbstractVector{<:Real}, θ::Real,
     β::AbstractMatrix{<:Real}, i::Int, εᵦ::Real)
-        σ[i] = σ[i-1]# sampleσ(s, θ, β[i-1,:])
+        σ[i] = σ[i-1]
         β[i,:] = sampleβ(β[i-1,:], εᵦ, s, θ, σ[i])
         nothing
 end

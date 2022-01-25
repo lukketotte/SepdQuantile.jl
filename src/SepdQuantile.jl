@@ -8,8 +8,9 @@ import Base: rand
 
 include("Distributions/aepd.jl")
 include("Estimation/mcmc.jl")
+include("Estimation/quantConvert.jl")
 
-export mcmc, Sampler, acceptance, Aepd
+export mcmc, Sampler, acceptance, Aepd, mcτ
 
 
 end # module
