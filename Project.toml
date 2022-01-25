@@ -1,0 +1,4 @@
+name = "SepdQuantile"
+uuid = "244cf09f-df0e-4a01-8fa2-8ed3c2e58cde"
+authors = ["lukketotte <lukas.arnroth@gmail.com>"]
+version = "0.1.0"
