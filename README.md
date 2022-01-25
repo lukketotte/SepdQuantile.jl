@@ -16,7 +16,7 @@ Through the `pkg` REPL mode by typing
 To recreate Fig. 4,5, and 6 for sample size n = 1000, the simulation is carried out as below.
 ```julia
 using Distributed, SharedArrays
-@everywhere using SepdQuantile, LinearAlgebra, StatsBase, QuantileRegressions, DataFrames,
+@everywhere using SepdQuantile, LinearAlgebra, StatsBase, QuantileRegressions, DataFrames
 n = 1000;
 x = rand(Normal(), n);
 X = hcat(ones(n), x)
@@ -62,8 +62,6 @@ control =  Dict(:tol => 1e-3, :max_iter => 1000, :max_upd => 0.3,
         taubayes = [quantconvert(q[k], median(θ), median(α), μ[k], median(σ)) for k in 1:length(par.y)] |> mean
         taufreq  = [quantconvert(q[k], res[:p], res[:tau], μf[k], res[:sigma]) for k in 1:length(y)] |> mean
 
-
-        # Compute estimated quantiles based on conversion
         par.α = taubayes
         βres = mcmc(par, 1.3, median(θ), median(σ), b, verbose = false)
         μ = X * median(βres, dims = 1)' |> x -> reshape(x, size(x, 1))

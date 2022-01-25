@@ -242,5 +242,20 @@ function mcmcThin(σ::AbstractVector{<:Real}, β::Array{<:Real, 2}, s::Sampler)
     return β
 end
 
+"""
+    acceptance(θ)
+Computes the acceptance rate of the posterior samples
+
+# Arguments
+- `θ::AbstractMatrix{<:Real}`: Matrix of samples from posterior
+"""
 acceptance(θ::AbstractMatrix{<:Real}) = size(θ, 1) |> n -> 1-((θ[2:n, 1] .=== θ[1:(n - 1), 1]) |> mean)
+
+"""
+    acceptance(θ)
+Computes the acceptance rate of the posterior samples
+
+# Arguments
+- `θ::AbstractVector{<:Real}`: Vector of samples from posterior
+"""
 acceptance(θ::AbstractVector{<:Real}) = length(θ) |> n -> 1-((θ[2:n] .=== θ[1:(n - 1), 1]) |> mean)
