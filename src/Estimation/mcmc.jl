@@ -100,8 +100,8 @@ Samples from the posterior assuming that skewness is known
 
 # Arguments
 - `s::Sampler`: Sampler struct
-- `ε::Real`: Variance of shape parameter proposal distribution
-- `εᵦ::Real`: Variance of regression coefficients proposal distribution
+- `ε::Real`: Standard deviation of shape parameter proposal distribution
+- `εᵦ::Real`: Standard deviation of regression coefficients proposal distribution
 - `σ₁::Real`: Initial value of scale parameter
 - `θ₁::Real`: Initial value of shape parameter
 - `β₁::Union{AbstractVector{<:Real}, Nothing}`: Initial values of regression coefficients, set to 0 if nothing
@@ -140,9 +140,9 @@ Samples from the posterior assuming that all parameters are unkown
 
 # Arguments
 - `s::Sampler`: Sampler struct
-- `ε::Real`: Variance of shape parameter proposal distribution
-- `εₐ::Real`: Variance of skewness parameter proposal distribution
-- `εᵦ::Real`: Variance of regression coefficients proposal distribution
+- `ε::Real`:  Standard deviation of shape parameter proposal distribution
+- `εₐ::Real`:  Standard deviation of skewness parameter proposal distribution
+- `εᵦ::Real`:  Standard deviation of regression coefficients proposal distribution
 - `σ₁::Real`: Initial value of scale parameter
 - `θ₁::Real`: Initial value of shape parameter
 - `α₁::Real`: Initial value of skewness parameter
@@ -186,7 +186,7 @@ set to s.α
 
 # Arguments
 - `s::Sampler`: Sampler struct
-- `εᵦ::Real`: Variance of regression coefficients proposal distribution
+- `εᵦ::Real`:  Standard deviation of regression coefficients proposal distribution
 - `θ::Real`: Fixed value of shape parameter
 - `σ::Real`: Fixed value of shape parameter
 - `β₁::Union{AbstractVector{<:Real}, Nothing}`: Initial values of regression coefficients, set to 0 if nothing
