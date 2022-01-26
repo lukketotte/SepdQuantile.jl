@@ -54,7 +54,7 @@ end
 function sampleθ(s::Sampler, θ::Real, β::AbstractVector{<:Real}, ε::Real; trunc = .5)
     prop = rand(Truncated(Normal(θ, ε^2), trunc, Inf))
     a = logpdf(Truncated(Normal(prop, ε^2), trunc, Inf), θ) - logpdf(Truncated(Normal(θ, ε^2), trunc, Inf), prop)
-    return θcond(s, prop, β) - θcond(s, θ, β) + a >= log(rand(Uniform(0,1), 1)[1]) ? prop : θ
+    return θcond(s, prop, β) - θcond(s, θ, β) + a >= log(rand(Uniform(0,1))) ? prop : θ
 end
 
 function αcond(α::Real, s::Sampler, θ::Real, σ::Real, β::AbstractVector{<:Real})
@@ -65,13 +65,13 @@ function sampleα(s::Sampler, ε::Real, θ::Real, σ::Real, β::AbstractVector{<
     prop = rand(Truncated(Normal(s.α, ε^2), 0, 1))
     a = logpdf(Truncated(Normal(prop, ε^2), 0, 1), s.α) - logpdf(Truncated(Normal(s.α, ε^2), 0, 1), prop) +
         αcond(prop, s, θ, σ, β) - αcond(s.α, s, θ, σ, β)
-    s.α = a >= log(rand(Uniform(0,1), 1)[1]) ? prop : s.α
+    s.α = a >= log(rand(Uniform(0,1))) ? prop : s.α
     nothing
 end
 
 function sampleσ(s::Sampler, θ::Real, β::AbstractVector{<:Real})
     b = gamma(1+1/θ)^θ * kernel(s, β, θ)
-    return (rand(InverseGamma(length(s.y)/θ, b), 1)[1])^(1/θ)
+    return (rand(InverseGamma(length(s.y)/θ, b)))^(1/θ)
 end
 
 function logβCond(β::AbstractVector{<:Real}, s::Sampler, θ::Real, σ::Real)
@@ -91,7 +91,7 @@ function sampleβ(β::AbstractVector{<:Real}, ε::Real,  s::Sampler, θ::Real, �
     αᵦ = logβCond(prop, s, θ, σ) - logβCond(β, s, θ, σ)
     αᵦ += - logpdf(MvNormal(β + ε^2 / 2 * H * ∇, ε^2 * H), prop)
     αᵦ += logpdf(MvNormal(prop + ε^2/2 * Hₚ * ∇ₚ, ε^2 * Hₚ), β)
-    return αᵦ > log(rand(Uniform(0,1), 1)[1]) ? prop : β
+    return αᵦ > log(rand(Uniform(0,1))) ? prop : β
 end
 
 """
