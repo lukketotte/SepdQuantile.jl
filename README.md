@@ -17,6 +17,7 @@ To recreate Fig. 4,5, and 6 for sample size n = 1000, the simulation is carried 
 ```julia
 using Distributed, SharedArrays
 @everywhere using SepdQuantile, LinearAlgebra, StatsBase, QuantileRegressions, DataFrames
+
 n = 1000;
 x = rand(Normal(), n);
 X = hcat(ones(n), x)
@@ -39,44 +40,45 @@ control =  Dict(:tol => 1e-3, :max_iter => 1000, :max_upd => 0.3,
   :est_p => true, :est_tau => true, :log => false, :verbose => false)
 
 @sync @distributed for i ∈ 1:size(settings, 1)
-    println(i)
     p, skew, τ = settings[i, 1:3]
     old, bayes, freq = [zeros(reps) for i in 1:3]
     for j ∈ 1:reps
         y = 2.1 .+ 0.5 .* x + rand(Aepd(0, 1, p, skew), n);
 
-        # Bayesian
+        # Estimate all parameters by Alg. 1
         par = Sampler(y, X, skew, 10000, 5, 2500);
         β, θ, σ, α = mcmc(par, 0.8, .25, 1.5, 1, 2, 0.5, [2.1, 0.5], verbose = false);
         μ = X * median(β, dims = 1)' |> x -> reshape(x, size(x, 1))
 
-        # Freq
+        # Estimate all parameters by Alg. 2
         control[:est_sigma], control[:est_tau], control[:est_p] = (true, true, true)
         res = quantfreq(y, X, control)
         μf = X * res[:beta] |> x -> reshape(x, size(x, 1))
 
-        # Compute τ converted
+        # Standard quantile regression
         b = DataFrame(hcat(par.y, par.X), :auto) |> x -> qreg(@formula(x1 ~  x3), x, τ) |> coef
         q = X * b
 
+        # Convert skewness, using the data rather than the MC estimate when n is large
         taubayes = [quantconvert(q[k], median(θ), median(α), μ[k], median(σ)) for k in 1:length(par.y)] |> mean
         taufreq  = [quantconvert(q[k], res[:p], res[:tau], μf[k], res[:sigma]) for k in 1:length(y)] |> mean
 
+        # Using the converted quantiles
         par.α = taubayes
         βres = mcmc(par, 1.3, median(θ), median(σ), b, verbose = false)
         μ = X * median(βres, dims = 1)' |> x -> reshape(x, size(x, 1))
         bayes[j] = [par.y[k] <= μ[k]  for k in 1:length(par.y)] |> mean
 
+        control[:est_sigma], control[:est_tau], control[:est_p] = (false, false, false)
+        res = quantfreq(y, X, control, res[:sigma], res[:p], taufreq)
+        freq[j] = mean(y .<= X*res[:beta])
+
+        # Estimate SQR method
         par.α = τ
         par.πθ = "uniform"
         βt, _, _ = mcmc(par, .6, .6, 1.2, 2, b, verbose = false)
         μ = X * median(βt, dims = 1)' |> x -> reshape(x, size(x, 1))
         old[j] = [par.y[k] <= μ[k]  for k in 1:length(par.y)] |> mean
-
-        control[:est_sigma], control[:est_tau], control[:est_p] = (false, false, false)
-        res = quantfreq(y, X, control, res[:sigma], res[:p], taufreq)
-        freq[j] = mean(y .<= X*res[:beta])
-
     end
     settings[i, 4] = mean(old)
     settings[i, 5] = √var(old)
