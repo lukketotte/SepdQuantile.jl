@@ -13,7 +13,7 @@ Through the `pkg` REPL mode by typing
 
 
 ## Recreate results
-To recreate Fig. 4,5, and 6 for sample size n = 1000, the simulation is carried out as below.
+To recreate Fig. 4,5, and 6 for sample size n = 1000, the simulation is carried out as below. Keep in mind that to run the code, `RCall.jl` has to be setup with access to the R packages `quantreg`, `maxLik`, and `AEP`.
 ```julia
 using Distributed, SharedArrays
 @everywhere using SepdQuantile, LinearAlgebra, StatsBase, QuantileRegressions, DataFrames
