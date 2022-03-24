@@ -195,11 +195,11 @@ set to s.α
 function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, σ::Real,
     β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose = true)
     n, p = size(s.X)
-    σ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
+    σ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
-    σ = [σ₁; zeros(s.nMCMC-1)]
+    σ = [σ; zeros(s.nMCMC-1)]
     β[1,:] = !(typeof(β₁) <: Nothing) && β₁
-    σ[1] = σ
+    #σ[1] = σ
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
         barglyphs=BarGlyphs('|','█', ['▁' ,'▂' ,'▃' ,'▄' ,'▅' ,'▆', '▇'],' ','|',),
