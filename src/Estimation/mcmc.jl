@@ -113,7 +113,7 @@ function mcmc(s::Sampler, ε::Real, εᵦ::Real, σ₁::Real, θ₁::Real,
     σ₁ > 0 || θ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
     σ, θ = [σ₁ ; zeros(s.nMCMC-1)], [θ₁ ; zeros(s.nMCMC-1)]
-    β[1,:] = !(typeof(β₁) <: Nothing) && β₁
+    #β[1,:] = !(typeof(β₁) <: Nothing) && β₁
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
         barglyphs=BarGlyphs('|','█', ['▁' ,'▂' ,'▃' ,'▄' ,'▅' ,'▆', '▇'],' ','|',),
@@ -156,7 +156,7 @@ function mcmc(s::Sampler, ε::Real, εₐ::Real, εᵦ::Union{Real, AbstractVect
     β = zeros(s.nMCMC, p)
     σ, θ, α = [σ₁ ; zeros(s.nMCMC-1)], [θ₁ ; zeros(s.nMCMC-1)], [α₁ ; zeros(s.nMCMC-1)]
     s.α = α₁
-    β[1,:] = !(typeof(β₁) <: Nothing) && β₁
+    #β[1,:] = !(typeof(β₁) <: Nothing) && β₁
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
         barglyphs=BarGlyphs('|','█', ['▁' ,'▂' ,'▃' ,'▄' ,'▅' ,'▆', '▇'],' ','|',),
@@ -197,8 +197,8 @@ function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, 
     n, p = size(s.X)
     σ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
-    σ = [zeros(s.nMCMC)]
-    β[1,:] = !(typeof(β₁) <: Nothing) && β₁
+    σ = zeros(s.nMCMC)
+    #β[1,:] = !(typeof(β₁) <: Nothing) && β₁
     σ[1] = σ₁
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
