@@ -46,9 +46,9 @@ function mcτ(τ::Real, α::Real, θ::Real, σ::Real, n::Int = 1000, N::Int = 10
         dat = rand(Aepd(0, σ, θ, α), n)
         q = DataFrame(hcat(dat), :auto) |> x -> qreg(@formula(x1 ~  1), x, τ) |> coef;
         #res[i] = quantconvert(q[1], θ, α, 0, σ)
-        a₁ = mean(abs.(dat .- q).^(p-1))
-        a₂ = mean(abs.(dat .- q).^(p-1) .* (dat .< q))
-        res[i] = 1/((maximum([a₁/a₂, 1.0001]) - 1)^(1/p) + 1)
+        a₁ = mean(abs.(dat .- q).^(θ-1))
+        a₂ = mean(abs.(dat .- q).^(θ-1) .* (dat .< q))
+        res[i] = 1/((maximum([a₁/a₂, 1.0001]) - 1)^(1/θ) + 1)
     end
     mean(res)
 end
