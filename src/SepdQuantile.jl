@@ -1,7 +1,7 @@
 module SepdQuantile
 
 using Distributions, Random, LinearAlgebra, StatsBase, SpecialFunctions, ProgressMeter, ForwardDiff, StatsModels, RCall
-using DataFrames
+using DataFrames, QuantileRegressions
 
 import Distributions: pdf, _logpdf, sampler, _rand!, logpdf, @check_args
 import Base: rand
