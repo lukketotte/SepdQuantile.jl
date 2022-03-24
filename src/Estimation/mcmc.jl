@@ -192,12 +192,12 @@ set to s.α
 - `β₁::Union{AbstractVector{<:Real}, Nothing}`: Initial values of regression coefficients, set to 0 if nothing
 - `verbose::Bool`: Print progress, defaults to true
 """
-function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, σ::Real,
+function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, σ₁::Real,
     β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose = true)
     n, p = size(s.X)
-    σ > 0 || throw(DomainError("Shape ands scale must be positive"))
+    σ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
-    σ = [σ; zeros(s.nMCMC-1)]
+    σ = [σ₁; zeros(s.nMCMC-1)]
     β[1,:] = !(typeof(β₁) <: Nothing) && β₁
     #σ[1] = σ
 
