@@ -216,7 +216,7 @@ set to s.α
 - `verbose::Bool`: Print progress, defaults to true
 """
 function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, σ₁::Real,
-    β₁::AbstractVector{<:Real} = zeros(dim(s)[1]); verbose = true)
+    β₁::AbstractVector{<:Real} = zeros(dim(s)[2]); verbose = true)
     n, p = size(s.X)
     σ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
