@@ -17,7 +17,7 @@ mutable struct Sampler{T <: Real, M <: Real, Response <: AbstractVector, ModelMa
     nMCMC::Int
     thin::Int
     burnIn::Int
-    πθ::String
+    θlower::Number
 end
 
 function Sampler(y::AbstractVector{T}, X::AbstractMatrix{M}, α::Real, nMCMC::Int, thin::Int, burnIn::Int, πθ::String) where {T,M <: Real}
@@ -25,18 +25,18 @@ function Sampler(y::AbstractVector{T}, X::AbstractMatrix{M}, α::Real, nMCMC::In
     α > 0 || α < 1 || throw(DomainError("α ∉ (0,1)"))
     y = T <: Int ?  log.(y + rand(Uniform(), length(y))) : y
     length(y) === size(X)[1] || throw(DomainError("Size of y and X not matching"))
-    πθ === "jeffrey" || πθ === "uniform" || throw(ArgumentError("prior has to be jeffrey or uniform"))
     Sampler{T, M, typeof(y), typeof(X)}(y, X, α, nMCMC, thin, burnIn, πθ)
 end
 
 Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int, πθ::String) = Sampler(y, X, α, nMCMC, 1, 1, πθ)
-Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int) = Sampler(y, X, α, nMCMC, 1, 1, "jeffrey")
-Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int, thin::Int, burnIn::Int) = Sampler(y, X, α, nMCMC, thin, burnIn, "jeffrey")
-Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, nMCMC::Int) = Sampler(y, X, 0.5, nMCMC, 1, 1, "jeffrey")
-Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}) = Sampler(y, X, 0.5, 5000, 1, 1, "jeffrey")
+Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int) = Sampler(y, X, α, nMCMC, 1, 1, 1.)
+Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int, thin::Int, burnIn::Int) = Sampler(y, X, α, nMCMC, thin, burnIn, 1.)
+Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, nMCMC::Int) = Sampler(y, X, 0.5, nMCMC, 1, 1, 1.)
+Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}) = Sampler(y, X, 0.5, 5000, 1, 1, 1.)
 
 data(s::Sampler) = (s.y, s.X)
 param(s::Sampler) = (s.y, s.X, s.α)
+dim(s::Sampler) = size(s.X)
 
 kernel(s::Sampler, β::AbstractVector{<:Real}, θ::Real) = s.y-s.X*β |> z -> (sum((.-z[z.<0]).^θ)/s.α^θ + sum(z[z.>0].^θ)/(1-s.α)^θ)
 kernel(s::Sampler, β::AbstractVector{<:Real}, θ::Real, α::Real) = s.y-s.X*β |> z -> (sum((.-z[z.<0]).^θ)/α^θ + sum(z[z.>0].^θ)/(1-α)^θ)
@@ -48,13 +48,13 @@ end
 function θcond(s::Sampler, θ::Real, β::AbstractVector{<:Real})
     n = length(s.y)
     a = gamma(1+1/θ)^θ * kernel(s, β, θ)
-    return -log(θ) + loggamma(n/θ) - (n/θ) * log(a) + (s.πθ === "jeffrey" ? log(πθ(θ)) : 0)
+    return -log(θ) + loggamma(n/θ) - (n/θ) * log(a)
 end
 
-function sampleθ(s::Sampler, θ::Real, β::AbstractVector{<:Real}, ε::Real; trunc = .5)
-    prop = rand(Truncated(Normal(θ, ε^2), trunc, Inf))
-    a = logpdf(Truncated(Normal(prop, ε^2), trunc, Inf), θ) - logpdf(Truncated(Normal(θ, ε^2), trunc, Inf), prop)
-    return θcond(s, prop, β) - θcond(s, θ, β) + a >= log(rand(Uniform(0,1))) ? prop : θ
+function sampleθ(s::Sampler, θ::Real, β::AbstractVector{<:Real}, ε::Real)
+    prop = rand(truncated(Normal(θ, ε^2), s.θlower, 5))
+    a = logpdf(truncated(Normal(prop, ε^2), s.θlower, 5), θ) - logpdf(truncated(Normal(θ, ε^2), s.θlower, 5), prop)
+    return θcond(s, prop, β) - θcond(s, θ, β) + a >= log(rand(Uniform(0,1), 1)[1]) ? prop : θ
 end
 
 function αcond(α::Real, s::Sampler, θ::Real, σ::Real, β::AbstractVector{<:Real})
@@ -82,7 +82,7 @@ end
 ∂β(β::AbstractVector{<:Real}, s::Sampler, θ::Real, σ::Real) = ForwardDiff.gradient(β -> logβCond(β, s, θ, σ), β)
 ∂β2(β::AbstractVector{<:Real}, s::Sampler, θ::Real, σ::Real) = ForwardDiff.jacobian(β -> -∂β(β, s, θ, σ), β)
 
-function sampleβ(β::AbstractVector{<:Real}, ε::Real,  s::Sampler, θ::Real, σ::Real)
+"""function sampleβ(β::AbstractVector{<:Real}, ε::Real,  s::Sampler, θ::Real, σ::Real)
     ∇ = ∂β(β, s, θ, σ)
     H = (∂β2(β, s, maximum([θ, 1.01]), σ))^(-1) |> Symmetric
     prop = β + ε^2 * H / 2 * ∇ + ε * √H * vec(rand(MvNormal(zeros(length(β)), 1), 1))
@@ -92,6 +92,31 @@ function sampleβ(β::AbstractVector{<:Real}, ε::Real,  s::Sampler, θ::Real, �
     αᵦ += - logpdf(MvNormal(β + ε^2 / 2 * H * ∇, ε^2 * H), prop)
     αᵦ += logpdf(MvNormal(prop + ε^2/2 * Hₚ * ∇ₚ, ε^2 * Hₚ), β)
     return αᵦ > log(rand(Uniform(0,1))) ? prop : β
+end"""
+function sampleβ(β::AbstractVector{<:Real}, ε::Real,  s::Sampler, θ::Real, σ::Real)
+    ∇ = ∂β(β, s, θ, σ)
+    H = try
+            (PDMat(Symmetric((∂β2(β, s, maximum([θ, 1.01]), σ)))))^(-1)
+        catch e
+            if isa(e, PosDefException)
+                println("Warning: PosDefException for H, using p = 2")
+                (PDMat((s.X's.X) * sum((s.y-s.X*vec(β)).^2)))^(-1)
+            end
+        end
+    prop = β + ε^2 * H / 2 * ∇ + ε * H^(0.5) * vec(rand(MvNormal(zeros(length(β)), I), 1))
+    ∇ₚ = ∂β(prop, s, θ, σ)
+    Hₚ = try
+            (PDMat(Symmetric(∂β2(prop, s, maximum([θ, 1.01]), σ))))^(-1)
+        catch e
+            if isa(e, PosDefException)
+                println("Warning: PosDefException for Hₚ, using p = 2")
+                (PDMat((s.X's.X) * sum((s.y-s.X*vec(prop)).^2)))^(-1)
+            end
+        end
+    αᵦ = logβCond(prop, s, θ, σ) - logβCond(β, s, θ, σ)
+    αᵦ += - logpdf(MvNormal(β + ε^2 / 2 * H * ∇, ε^2 * H), prop)
+    αᵦ += logpdf(MvNormal(prop + ε^2/2 * Hₚ * ∇ₚ, ε^2 * Hₚ), β)
+    return αᵦ > log(rand(Uniform(0,1), 1)[1]) ? prop : β
 end
 
 """
@@ -108,12 +133,12 @@ Samples from the posterior assuming that skewness is known
 - `verbose::Bool`: Print progress, defaults to true
 """
 function mcmc(s::Sampler, ε::Real, εᵦ::Real, σ₁::Real, θ₁::Real,
-    β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose::Bool = true)
+    β₁::AbstractVector{<:Real} = zeros(dim(s)[1]); verbose::Bool = true)
     n, p = size(s.X)
     σ₁ > 0 || θ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
     σ, θ = [σ₁ ; zeros(s.nMCMC-1)], [θ₁ ; zeros(s.nMCMC-1)]
-    #β[1,:] = !(typeof(β₁) <: Nothing) && β₁
+    β[1,:] = β₁
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
         barglyphs=BarGlyphs('|','█', ['▁' ,'▂' ,'▃' ,'▄' ,'▅' ,'▆', '▇'],' ','|',),
@@ -150,13 +175,13 @@ Samples from the posterior assuming that all parameters are unkown
 - `verbose::Bool`: Print progress, defaults to true
 """
 function mcmc(s::Sampler, ε::Real, εₐ::Real, εᵦ::Union{Real, AbstractVector{<:Real}}, σ₁::Real, θ₁::Real, α₁::Real,
-    β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose = true)
+    β₁::AbstractVector{<:Real} = zeros(dim(s)[1]); verbose = true)
     n, p = size(s.X)
     σ₁ > 0 || θ₁ > 0 || α > 0 || α < 1 || throw(DomainError("Initial parameter(s) not in domain"))
     β = zeros(s.nMCMC, p)
     σ, θ, α = [σ₁ ; zeros(s.nMCMC-1)], [θ₁ ; zeros(s.nMCMC-1)], [α₁ ; zeros(s.nMCMC-1)]
     s.α = α₁
-    #β[1,:] = !(typeof(β₁) <: Nothing) && β₁
+    β[1,:] = β₁
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
         barglyphs=BarGlyphs('|','█', ['▁' ,'▂' ,'▃' ,'▄' ,'▅' ,'▆', '▇'],' ','|',),
@@ -193,12 +218,12 @@ set to s.α
 - `verbose::Bool`: Print progress, defaults to true
 """
 function mcmc(s::Sampler, εᵦ::Union{Real, AbstractVector{<:Real}}, θ::Real, σ₁::Real,
-    β₁::Union{AbstractVector{<:Real}, Nothing} = nothing; verbose = true)
+    β₁::AbstractVector{<:Real} = zeros(dim(s)[1]); verbose = true)
     n, p = size(s.X)
     σ₁ > 0 || throw(DomainError("Shape ands scale must be positive"))
     β = zeros(s.nMCMC, p)
     σ = zeros(s.nMCMC)
-    #β[1,:] = !(typeof(β₁) <: Nothing) && β₁
+    β[1,:] = β₁
     σ[1] = σ₁
 
     p = verbose && Progress(s.nMCMC-1, dt=0.5,
