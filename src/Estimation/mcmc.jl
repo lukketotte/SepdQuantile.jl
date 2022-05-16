@@ -20,15 +20,16 @@ mutable struct Sampler{T <: Real, M <: Real, Response <: AbstractVector, ModelMa
     θlower::Number
 end
 
-function Sampler(y::AbstractVector{T}, X::AbstractMatrix{M}, α::Real, nMCMC::Int, thin::Int, burnIn::Int, πθ::String) where {T,M <: Real}
+function Sampler(y::AbstractVector{T}, X::AbstractMatrix{M}, α::Real, nMCMC::Int, thin::Int, burnIn::Int, θlower::Real) where {T,M <: Real}
     nMCMC > 0 || thin > 0 || burnIn > 0 || throw(DomainError("Integers can't be negative"))
     α > 0 || α < 1 || throw(DomainError("α ∉ (0,1)"))
+    θlower > 0 || throw(DomainError("θ must be positive"))
     y = T <: Int ?  log.(y + rand(Uniform(), length(y))) : y
     length(y) === size(X)[1] || throw(DomainError("Size of y and X not matching"))
-    Sampler{T, M, typeof(y), typeof(X)}(y, X, α, nMCMC, thin, burnIn, πθ)
+    Sampler{T, M, typeof(y), typeof(X)}(y, X, α, nMCMC, thin, burnIn, θlower)
 end
 
-Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int, πθ::String) = Sampler(y, X, α, nMCMC, 1, 1, πθ)
+Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int, θlower::Real) = Sampler(y, X, α, nMCMC, 1, 1, θlower)
 Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int) = Sampler(y, X, α, nMCMC, 1, 1, 1.)
 Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, α::Real, nMCMC::Int, thin::Int, burnIn::Int) = Sampler(y, X, α, nMCMC, thin, burnIn, 1.)
 Sampler(y::AbstractVector{<:Real}, X::AbstractMatrix{<:Real}, nMCMC::Int) = Sampler(y, X, 0.5, nMCMC, 1, 1, 1.)
@@ -41,9 +42,6 @@ dim(s::Sampler) = size(s.X)
 kernel(s::Sampler, β::AbstractVector{<:Real}, θ::Real) = s.y-s.X*β |> z -> (sum((.-z[z.<0]).^θ)/s.α^θ + sum(z[z.>0].^θ)/(1-s.α)^θ)
 kernel(s::Sampler, β::AbstractVector{<:Real}, θ::Real, α::Real) = s.y-s.X*β |> z -> (sum((.-z[z.<0]).^θ)/α^θ + sum(z[z.>0].^θ)/(1-α)^θ)
 
-function πθ(θ::Real)
-    θ^(-3/2) * √((1+1/θ) * trigamma(1+1/θ))
-end
 
 function θcond(s::Sampler, θ::Real, β::AbstractVector{<:Real})
     n = length(s.y)
