@@ -24,9 +24,10 @@ control = Dict(
 - `sigma::Real`: initial value of scale parameter
 - `p::Real`: initial value of shape parameter
 - `tau::Real`: initial value of skewness parameter
+- `beta::Real`: initial value of regression parameter
 """
 function quantfreq(y::AbstractVector{T}, X::AbstractMatrix{M},
-    Control::Dict{Symbol, Real}, sigma::Real = 2, p::Real = 2, tau::Real = 0.5) where {T, M <: Real}
+    Control::Dict{Symbol, Real}, sigma::Real = 2, p::Real = 2, tau::Real = 0.5, beta::Real = 0.) where {T, M <: Real}
   rcopy(R"""
   Control = $Control
   Y = $y
@@ -259,8 +260,9 @@ function quantfreq(y::AbstractVector{T}, X::AbstractMatrix{M},
     } else {
       Y <- as.matrix(Y)
   }
+
   NBeta <- dim(X)[2]
-  Beta_0 <- rep(0,NBeta)
+  Beta_0 <- rep($beta, NBeta)
 
   AEPD_obj <- AEPD_est_fun(Y,X,Beta_0,Sigma_0,P_0,Tau_0,Control)
   """)
